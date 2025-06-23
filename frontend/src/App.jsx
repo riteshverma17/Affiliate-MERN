@@ -35,7 +35,7 @@ function App() {
 
   useEffect(() => {
     isUserLoggedIn();
-  });
+  }, []);
 
   // 🔃 Optional: Show loading message while checking auth status
   if (loading) {
@@ -84,14 +84,15 @@ function App() {
         path="/dashboard"
         element={userDetails ? <Dashboard /> : <Navigate to="/login" />}
       />
+
       <Route
         path="/logout"
         element={
-          userDetails ? (
+          userDetails ? 
             <Logout updateUserDetails={updateUserDetails} />
-          ) : (
-            +(<Navigate to="/login" />)
-          )
+           : 
+            <Navigate to="/login" />
+          
         }
       />
       <Route
