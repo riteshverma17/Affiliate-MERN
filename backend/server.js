@@ -1,27 +1,38 @@
-const express=require('express');
-const cookiePasker = require('cookie-parser');
+const express = require('express');
+const cookieParser = require('cookie-parser'); 
 const cors = require('cors');
+const dotenv = require('dotenv');
+const mongoose = require('mongoose');
 
-const authRoutes=require('./src/routes/authRoutes');
+dotenv.config(); 
+const authRoutes = require('./src/routes/authRoutes');
 
-const app=express();
+const app = express();
 
+//  Middleware
 app.use(express.json());
-app.use(cookiePasker());
+app.use(cookieParser()); 
 
+//  CORS setup
 const corsOptions = {
-    origin: 'http://localhost:3000',
-    credentials: true
-}
-
+  origin: process.env.CLIENT_ENDPOINT, 
+  credentials: true, // needed to send cookies
+};
 app.use(cors(corsOptions));
 
-app.use('/auth',authRoutes);
+//  Routes
+app.use('/auth', authRoutes);
 
-const PORT=5000;
-app.listen(PORT,(error)=>{
-    if(error){
-        console.log('server not started:',error);
-    }
-    console.log(`Server is running at port ${PORT}`)
+//DB connection
+mongoose
+  .connect(process.env.MONGO_URI)
+  .then(() => console.log('✅ Database Connected'))
+  .catch((error) => console.error('❌ MongoDB Error:', error));
+
+// Start server
+app.listen(process.env.PORT, (error) => {
+  if (error) {
+    return console.error('❌ Server not started:', error);
+  }
+  console.log(`✅ Server is running at port ${process.env.PORT}`);
 });

@@ -3,29 +3,37 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 
 import Home from "./pages/Home";
-import Login from "./components/Login";
-import Signup from "./components/Signup";
+import Login from "./pages/Login";
 import AppLayout from "./layout/AppLayout";
 import Dashboard from "./pages/Dashboard";
-import Logout from "./components/Logout";
+import Logout from "./pages/Logout";
 import Error from "./components/Error";
+import Register from "./pages/Register";
+
+import { serverEndpoint } from "./config";
+import { useDispatch, useSelector } from "react-redux";
+import { SET_USER } from "./redux/user/action";
 
 function App() {
-  const [userDetails, setUserDetails] = useState(null);
+  const userDetails = useSelector((state) => state.userDetails);
+  const dispatch = useDispatch()
   const [loading, setLoading] = useState(true); //
 
-  const updateUserDetails = (updatedData) => {
-    setUserDetails(updatedData);
-  };
+  
 
   const isUserLoggedIn = async () => {
     try {
       const response = await axios.post(
-        "http://localhost:5000/auth/is-user-logged-in",
+        `${serverEndpoint}/auth/is-user-logged-in`,
         {},
         { withCredentials: true }
       );
-      updateUserDetails(response.data.userDetails);
+      // updateUserDetails(response.data.userDetails);
+
+      dispatch({
+        type: SET_USER,
+        payload: response.data.userDetail
+      })
     } catch (e) {
       console.log("User not logged in:", e.message);
     } finally {
@@ -63,19 +71,19 @@ function App() {
             <Navigate to="/dashboard" />
           ) : (
             <AppLayout>
-              <Login updateUserDetails={updateUserDetails} />
+              <Login />
             </AppLayout>
           )
         }
       />
       <Route
-        path="/signup"
+        path="/register"
         element={
           userDetails ? (
             <Navigate to="/dashboard" />
           ) : (
             <AppLayout>
-              <Signup />
+              <Register />
             </AppLayout>
           )
         }
@@ -89,7 +97,7 @@ function App() {
         path="/logout"
         element={
           userDetails ? 
-            <Logout updateUserDetails={updateUserDetails} />
+            <Logout />
            : 
             <Navigate to="/login" />
           
@@ -98,13 +106,13 @@ function App() {
       <Route
         path="/error"
         element={
-          userDetails ? (
+          userDetails ?
             <Error />
-          ) : (
+           : 
             <AppLayout>
               <Error />
             </AppLayout>
-          )
+          
         }
       />
     </Routes>
