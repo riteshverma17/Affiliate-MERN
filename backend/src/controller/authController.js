@@ -2,10 +2,11 @@ const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const Users = require("../model/Users");
 const dotenv = require("dotenv");
+const { OAuth2Client } = require("google-auth-library");
 
-dotenv.config(); // Ensure environment variables are loaded
+dotenv.config(); // Load environment variables
 
-const secret = process.env.JWT_SECRET || "97f7fe51-9abf-4550-9ba7-35563b03a3e7"; // ✅ Moved to .env for production
+const secret = process.env.JWT_SECRET || "97f7fe51-9abf-4550-9ba7-35563b03a3e7"; // fallback in dev
 
 const authController = {
   // ✅ Login Handler
@@ -13,7 +14,9 @@ const authController = {
     try {
       const { username, password } = request.body;
 
-      console.log("Received login for:", username);
+      if (!username || !password) {
+        return response.status(400).json({ message: "Username and password are required" });
+      }
 
       const user = await Users.findOne({ email: username });
       if (!user) {
@@ -35,7 +38,7 @@ const authController = {
 
       response.cookie("jwtToken", token, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === "production", // Only secure cookies in production
+        secure: process.env.NODE_ENV === "production",
         sameSite: "lax",
         path: "/",
       });
@@ -68,9 +71,7 @@ const authController = {
 
       const existingUser = await Users.findOne({ email });
       if (existingUser) {
-        return response
-          .status(401)
-          .json({ message: "User already exists with the given email" });
+        return response.status(401).json({ message: "User already exists with the given email" });
       }
 
       const encryptedPassword = await bcrypt.hash(password, 10);
@@ -84,13 +85,78 @@ const authController = {
       await newUser.save();
 
       console.log("User registered:", email);
-      return response
-        .status(200)
-        .json({ message: "User registered successfully" });
+
+      // Optional: Automatically log in the user after registration
+      const token = jwt.sign({ id: newUser._id, name, email }, secret, { expiresIn: "1h" });
+
+      response.cookie("jwtToken", token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        path: "/",
+      });
+
+      return response.status(200).json({
+        message: "User registered successfully",
+        userDetails: { id: newUser._id, name, email },
+      });
 
     } catch (error) {
       console.error("Registration error:", error);
       return response.status(500).json({ message: "Internal server error" });
+    }
+  },
+
+  // ✅ Google Auth Handler
+  googleAuth: async (request, response) => {
+    const { idToken } = request.body;
+    if (!idToken) {
+      return response.status(400).json({ message: "Invalid request" });
+    }
+
+    try {
+      const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+      const googleResponse = await googleClient.verifyIdToken({
+        idToken,
+        audience: process.env.GOOGLE_CLIENT_ID,
+      });
+
+      const payload = googleResponse.getPayload();
+      const { sub: googleId, email, name } = payload;
+
+      let user = await Users.findOne({ email });
+      if (!user) {
+        user = new Users({
+          email,
+          name,
+          googleId,
+        });
+        await user.save();
+      }
+
+      const userDetails = {
+        id: user._id || googleId,
+        name,
+        email,
+      };
+
+      const token = jwt.sign(userDetails, secret, { expiresIn: "1h" });
+
+      response.cookie("jwtToken", token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        path: "/",
+      });
+
+      return response.status(200).json({
+        message: "User authenticated",
+        userDetails,
+      });
+
+    } catch (error) {
+      console.error("Google Auth Error:", error);
+      return response.status(500).json({ error: "Internal server error" });
     }
   },
 
