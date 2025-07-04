@@ -1,43 +1,44 @@
-import { Routes, Route, Navigate } from "react-router-dom";
-import { useEffect, useState } from "react";
-import axios from "axios";
-
-import Home from "./pages/Home";
+import { Navigate, Route, Routes } from "react-router-dom";
 import Login from "./pages/Login";
+import Home from "./pages/Home";
 import AppLayout from "./layout/AppLayout";
 import Dashboard from "./pages/Dashboard";
+import { useEffect, useState } from "react";
+import axios from "axios";
+import Error from "./pages/Error";
 import Logout from "./pages/Logout";
-import Error from "./components/Error";
-import Register from "./pages/Register";
-
-import { serverEndpoint } from "./config";
+import { serverEndpoint } from "./config/config";
 import { useDispatch, useSelector } from "react-redux";
-import { SET_USER } from "./redux/user/action";
+import { SET_USER } from "./redux/user/actions";
+import UserLayout from "./layout/UserLayout";
+import Register from "./pages/Register";
+import Spinner from "./components/Spinner";
+import ManageUsers from "./pages/users/ManageUsers";
+import ProtectedRoute from "./rbac/ProtectedRoute";
+import UnauthorizedAccess from "./components/UnauthorizedAccess";
 
 function App() {
+  // Tracking user details in App because App is the component which decides
+  // where to navigate based on the current route and it needs to know whether
+  // the user is logged in or not.
   const userDetails = useSelector((state) => state.userDetails);
-  const dispatch = useDispatch()
-  const [loading, setLoading] = useState(true); //
-
-  
+  const [loading, setLoading] = useState(true);
+  const dispatch = useDispatch();
 
   const isUserLoggedIn = async () => {
     try {
-      const response = await axios.post(
-        `${serverEndpoint}/auth/is-user-logged-in`,
-        {},
-        { withCredentials: true }
-      );
+      const response = await axios.post(`${serverEndpoint}/auth/is-user-logged-in`, {}, {
+        withCredentials: true
+      });
       // updateUserDetails(response.data.userDetails);
-
       dispatch({
         type: SET_USER,
-        payload: response.data.userDetail
-      })
-    } catch (e) {
-      console.log("User not logged in:", e.message);
+        payload: response.data.userDetails
+      });
+    } catch (error) {
+      console.log('User not loggedin', error);
     } finally {
-      setLoading(false); // ✅ Done checking
+      setLoading(false);
     }
   };
 
@@ -45,76 +46,65 @@ function App() {
     isUserLoggedIn();
   }, []);
 
-  // 🔃 Optional: Show loading message while checking auth status
   if (loading) {
-    return <div className="text-center mt-10">Checking login status...</div>;
+    return <Spinner />;
   }
 
   return (
     <Routes>
-      <Route
-        path="/"
-        element={
-          userDetails ? (
-            <Navigate to="/dashboard" />
-          ) : (
-            <AppLayout>
-              <Home />
-            </AppLayout>
-          )
-        }
-      />
-      <Route
-        path="/login"
-        element={
-          userDetails ? (
-            <Navigate to="/dashboard" />
-          ) : (
-            <AppLayout>
-              <Login />
-            </AppLayout>
-          )
-        }
-      />
-      <Route
-        path="/register"
-        element={
-          userDetails ? (
-            <Navigate to="/dashboard" />
-          ) : (
-            <AppLayout>
-              <Register />
-            </AppLayout>
-          )
-        }
-      />
-      <Route
-        path="/dashboard"
-        element={userDetails ? <Dashboard /> : <Navigate to="/login" />}
-      />
+      <Route path="/" element={userDetails ?
+        <UserLayout>
+          <Navigate to='/dashboard' />
+        </UserLayout> :
+        <AppLayout>
+          <Home />
+        </AppLayout>
+      } />
 
-      <Route
-        path="/logout"
-        element={
-          userDetails ? 
-            <Logout />
-           : 
-            <Navigate to="/login" />
-          
-        }
-      />
-      <Route
-        path="/error"
-        element={
-          userDetails ?
-            <Error />
-           : 
-            <AppLayout>
-              <Error />
-            </AppLayout>
-          
-        }
-      />
+      {/* We're passing updateUserDetails function to Login because thats where 
+          we'll get user information are autnetication. */}
+      <Route path="/login" element={userDetails ?
+        <Navigate to='/dashboard' /> :
+        <AppLayout>
+          <Login />
+        </AppLayout>
+      } />
+      <Route path="/register" element={userDetails ?
+        <Navigate to='/dashboard' /> :
+        <AppLayout>
+          <Register />
+        </AppLayout>
+      } />
+      <Route path="/dashboard" element={userDetails ?
+        <UserLayout>
+          <Dashboard />
+        </UserLayout> :
+        <Navigate to='/login' />
+      } />
+      <Route path="/users" element={userDetails ?
+        <ProtectedRoute roles={['admin']}>
+          <UserLayout>
+            <ManageUsers />
+          </UserLayout>
+        </ProtectedRoute> :
+        <Navigate to='/login' />
+      } />
+      <Route path="/unauthorized-access" element={userDetails ?
+        <UserLayout>
+          <UnauthorizedAccess />
+        </UserLayout> :
+        <Navigate to="/login" />
+      } />
+      <Route path="/logout" element={userDetails ?
+        <Logout /> :
+        <Navigate to="/login" />
+      } />
+      <Route path="/error" element={userDetails ?
+        <UserLayout>
+          <Error />
+        </UserLayout> :
+        <AppLayout><Error /></AppLayout>
+      } />
     </Routes>
   );
 }

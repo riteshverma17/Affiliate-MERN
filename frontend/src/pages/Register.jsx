@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import axios from 'axios';
-import { serverEndpoint } from '../config';
+import { serverEndpoint } from '../config/config';
 import { useNavigate } from 'react-router-dom';
 import { Eye, EyeOff } from 'lucide-react';
 import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google';
 import { useDispatch } from 'react-redux';
-import { SET_USER } from '../redux/user/action';
+import { SET_USER } from '../redux/user/actions';
 
 export default function RegisterForm() {
   const navigate = useNavigate();
